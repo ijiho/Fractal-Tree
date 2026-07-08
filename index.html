@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>프랙털 구조</title>
+    <title>프랙탈 나무</title>
     <style>
         body {
             font-family: 'Pretendard', 'Malgun Gothic', sans-serif;
@@ -17,10 +17,13 @@
         }
         h1 {
             margin-bottom: 5px;
+            text-align: center;
         }
         p {
             color: #aaaaaa;
             margin-bottom: 20px;
+            text-align: center;
+            line-height: 1.5;
         }
         .controls {
             background-color: #2a2a2a;
@@ -50,15 +53,58 @@
         canvas {
             background-color: #0f0f0f;
             border-radius: 12px;
-            box-shadow: 0 0 20px rgba(74, 222, 128, 0.2);
+            box-shadow: 0 0 20px rgba(74, 222, 128, 0.15);
             max-width: 100%;
+            border: 1px solid #333;
         }
+        /* 실시간 연산 데이터 패널 스타일 */
+        .data-panel {
+            margin-top: 20px;
+            background-color: #222;
+            border-left: 4px solid #4ade80;
+            padding: 20px;
+            border-radius: 8px;
+            width: 100%;
+            max-width: 760px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+        .data-panel h3 {
+            margin: 0 0 15px 0;
+            color: #4ade80;
+            font-size: 16px;
+        }
+        .data-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        .data-item {
+            background: #1e1e1e;
+            padding: 12px;
+            border-radius: 6px;
+            border: 1px solid #333;
+        }
+        .data-label {
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 5px;
+            display: block;
+        }
+        .data-value {
+            font-size: 16px;
+            font-weight: bold;
+            color: #fff;
+        }
+        .status-safe { color: #4ade80; }
+        .status-warn { color: #facc15; }
+        .status-stop { color: #ef4444; }
     </style>
 </head>
 <body>
 
-    <h1>프랙털 시뮬레이터</h1>
+    <h1>프랙탈 나무 시뮬레이터</h1>
 
+    <!-- 사용자 입력 컨트롤러 -->
     <div class="controls">
         <div class="control-group">
             <label for="angle">가지 회전 각도 (θ): <span id="angleVal">25</span>°</label>
@@ -69,13 +115,36 @@
             <input type="range" id="ratio" min="0.50" max="0.80" step="0.01" value="0.70">
         </div>
         <div class="control-group">
-            <!-- 최대 렌더링 단계(n). 로그 부등식으로 도출된 한계값을 적용하는 부분 -->
             <label for="depth">렌더링 한계 단계 (n): <span id="depthVal">10</span></label>
             <input type="range" id="depth" min="1" max="14" value="10">
         </div>
     </div>
 
-    <canvas id="fractalCanvas" width="800" height="600"></canvas>
+    <!-- 시각화 캔버스 -->
+    <canvas id="fractalCanvas" width="800" height="500"></canvas>
+
+    <!-- 실시간 연산 데이터 패널 -->
+    <div class="data-panel">
+        <h3>📊 실시간 대수학 연산 데이터</h3>
+        <div class="data-grid">
+            <div class="data-item">
+                <span class="data-label">총 나뭇가지 개수 (등비수열의 합)</span>
+                <span class="data-value" id="calc-branches">0 개</span>
+            </div>
+            <div class="data-item">
+                <span class="data-label">최종 단계 가지 1개의 길이 (L_n)</span>
+                <span class="data-value" id="calc-smallest">0 px</span>
+            </div>
+            <div class="data-item">
+                <span class="data-label">모든 가지의 총 길이 합산</span>
+                <span class="data-value" id="calc-total-length">0 px</span>
+            </div>
+            <div class="data-item">
+                <span class="data-label">알고리즘 상태 (1px 통제 기준)</span>
+                <span class="data-value status-safe" id="calc-status">안전</span>
+            </div>
+        </div>
+    </div>
 
     <script>
         const canvas = document.getElementById('fractalCanvas');
@@ -89,69 +158,95 @@
         const ratioVal = document.getElementById('ratioVal');
         const depthVal = document.getElementById('depthVal');
 
-        // 프랙탈 나무를 그리는 재귀 함수
+        const L1 = 120; // 초기 몸통 길이
+
+        // 1. 프랙탈 나무 그리기 (재귀 함수 - 정보 알고리즘)
         function drawTree(startX, startY, length, angle, depth, branchWidth) {
             ctx.beginPath();
-            ctx.save(); // 현재 캔버스 상태(좌표계) 저장
+            ctx.save(); 
 
-            // 1. 삼각함수를 활용한 좌표 변환식 적용
-            // x_{n+1} = x_n + L_{n+1}*cos(θ), y_{n+1} = y_n + L_{n+1}*sin(θ)
-            // 캔버스에서는 translate와 rotate를 통해 기준점을 이동시키는 방식을 사용합니다.
+            // 좌표 변환 (삼각함수 원리 적용)
             ctx.translate(startX, startY);
             ctx.rotate(angle * Math.PI / 180);
             ctx.moveTo(0, 0);
-            ctx.lineTo(0, -length); // 위쪽 방향으로 선 긋기
+            ctx.lineTo(0, -length); 
             
-            // 가지 굵기 및 색상 설정
             ctx.lineWidth = branchWidth;
-            // 끝으로 갈수록(depth가 작을수록) 초록색 잎처럼 보이게 색상 변경
             ctx.strokeStyle = depth <= 2 ? '#4ade80' : '#8b5a2b';
             ctx.stroke();
 
-            // 2. 로그 부등식으로 도출된 기저 조건 (Base Case) 확인
-            // depth(n)가 0보다 커야만 계속 연산(1픽셀 미만 연산 통제)
+            // 기저 조건 (Base Case)
             if (depth > 0) {
-                // 3. 등비수열의 점화식 적용: L_{n+1} = L_n * r
                 const nextLength = length * parseFloat(ratioSlider.value);
                 const splitAngle = parseInt(angleSlider.value);
                 const nextWidth = branchWidth * 0.7;
 
-                // 왼쪽, 오른쪽으로 각각 뻗어나가는 재귀 호출
                 drawTree(0, -length, nextLength, -splitAngle, depth - 1, nextWidth);
                 drawTree(0, -length, nextLength, splitAngle, depth - 1, nextWidth);
             }
 
-            ctx.restore(); // 이전 좌표계로 복구
+            ctx.restore(); 
         }
 
-        // 화면을 다시 그리는 업데이트 함수
+        // 2. 실시간 수학 연산 데이터 계산 및 표시 (대수학)
+        function updateDataPanel(r, n) {
+            // 2-1. 총 나뭇가지 개수 (첫 항이 1, 공비가 2인 등비수열의 n항까지의 합: 2^n - 1)
+            const totalBranches = Math.pow(2, n) - 1;
+            document.getElementById('calc-branches').textContent = totalBranches.toLocaleString() + " 개";
+
+            // 2-2. 최종 단계 가지 1개의 길이 (등비수열 일반항: L_1 * r^(n-1))
+            const smallestLength = L1 * Math.pow(r, n - 1);
+            document.getElementById('calc-smallest').textContent = smallestLength.toFixed(2) + " px";
+
+            // 2-3. 모든 가지 길이의 총합 (공비가 2r인 등비수열의 합)
+            let totalLength = 0;
+            if (2 * r === 1) {
+                totalLength = L1 * n;
+            } else {
+                totalLength = L1 * (1 - Math.pow(2 * r, n)) / (1 - (2 * r));
+            }
+            document.getElementById('calc-total-length').textContent = totalLength.toLocaleString(undefined, {maximumFractionDigits: 0}) + " px";
+
+            // 2-4. 알고리즘 상태 판단 (로그 부등식 제어 기준)
+            const statusEl = document.getElementById('calc-status');
+            if (smallestLength < 1) {
+                statusEl.textContent = "최적화 완료 (1px 미만 제어됨)";
+                statusEl.className = "data-value status-stop";
+            } else if (smallestLength < 5) {
+                statusEl.textContent = "경고 (한계점 접근 중)";
+                statusEl.className = "data-value status-warn";
+            } else {
+                statusEl.textContent = "안전 (추가 연산 여유 있음)";
+                statusEl.className = "data-value status-safe";
+            }
+        }
+
+        // 3. 화면 업데이트 메인 함수
         function update() {
-            // 화면 지우기
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // UI 값 텍스트 업데이트
-            angleVal.textContent = angleSlider.value;
-            ratioVal.textContent = parseFloat(ratioSlider.value).toFixed(2);
-            depthVal.textContent = depthSlider.value;
+            const r = parseFloat(ratioSlider.value);
+            const n = parseInt(depthSlider.value);
+            const angle = parseInt(angleSlider.value);
 
-            // 초기 시작값 설정
-            const initialX = canvas.width / 2;
-            const initialY = canvas.height;
-            const initialLength = 140; // L_1 초기 나뭇가지 길이
-            const initialAngle = 0;
-            const currentDepth = parseInt(depthSlider.value);
-            const initialWidth = 10;
+            // UI 텍스트 갱신
+            angleVal.textContent = angle;
+            ratioVal.textContent = r.toFixed(2);
+            depthVal.textContent = n;
 
-            // 프랙탈 렌더링 시작
-            drawTree(initialX, initialY, initialLength, initialAngle, currentDepth, initialWidth);
+            // 데이터 패널 갱신
+            updateDataPanel(r, n);
+
+            // 프랙탈 렌더링 시작 (화면 하단 중앙에서 출발)
+            drawTree(canvas.width / 2, canvas.height, L1, 0, n, 10);
         }
 
-        // 슬라이더 값이 변경될 때마다 화면 실시간 업데이트
+        // 이벤트 리스너 등록
         angleSlider.addEventListener('input', update);
         ratioSlider.addEventListener('input', update);
         depthSlider.addEventListener('input', update);
 
-        // 웹페이지 로딩 시 최초 1회 렌더링
+        // 최초 실행
         update();
     </script>
 </body>
