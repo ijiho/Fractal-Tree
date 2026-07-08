@@ -2,244 +2,157 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>대수학 프랙탈 심화 시뮬레이터</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>프랙털 구조</title>
     <style>
-        :root {
-            --bg-color: #0f172a;
-            --panel-bg: #1e293b;
-            --text-main: #f8fafc;
-            --text-muted: #94a3b8;
-            --accent-math: #38bdf8;
-            --accent-ui: #10b981;
-        }
         body {
-            background-color: var(--bg-color); color: var(--text-main);
             font-family: 'Pretendard', 'Malgun Gothic', sans-serif;
-            margin: 0; padding: 20px;
-            display: flex; flex-direction: column; align-items: center;
+            background-color: #1a1a1a;
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
         }
-        h1 { color: var(--accent-ui); margin-bottom: 5px; font-size: 34px; letter-spacing: -1px; }
-        p.subtitle { color: var(--text-muted); font-size: 16px; margin-bottom: 30px; }
-        
-        .container { display: flex; gap: 30px; align-items: flex-start; max-width: 1200px; }
-        
-        .sidebar { display: flex; flex-direction: column; gap: 20px; width: 380px; }
-        .panel {
-            background-color: var(--panel-bg); padding: 25px; border-radius: 16px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 1px solid #334155;
+        h1 {
+            margin-bottom: 5px;
         }
-        .panel-title { 
-            font-size: 18px; font-weight: bold; color: var(--text-main); 
-            margin-bottom: 20px; padding-bottom: 10px; border-bottom: 2px solid #334155;
-            display: flex; justify-content: space-between;
+        p {
+            color: #aaaaaa;
+            margin-bottom: 20px;
         }
-        
-        .control-group { margin-bottom: 22px; }
-        .control-group label { display: flex; justify-content: space-between; align-items: center; font-size: 15px; font-weight: 600; margin-bottom: 6px; color: var(--text-main); }
-        .control-group span.desc { font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 10px; }
-        input[type="range"] { width: 100%; cursor: pointer; height: 6px; accent-color: var(--accent-ui); }
-        
-        /* 직접 입력할 수 있는 숫자 입력창 스타일 */
-        .input-wrap { display: flex; align-items: center; gap: 4px; color: var(--accent-math); font-weight: 800; font-size: 16px; }
-        .value-input {
-            background: rgba(0, 0, 0, 0.2); border: 1px solid transparent; border-radius: 6px;
-            color: var(--accent-math); font-weight: 800; font-size: 16px;
-            width: 55px; text-align: right; padding: 4px 6px; font-family: inherit;
-            transition: 0.2s; outline: none;
+        .controls {
+            background-color: #2a2a2a;
+            padding: 20px 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            display: flex;
+            gap: 30px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
         }
-        .value-input:hover { background: rgba(0, 0, 0, 0.4); border: 1px solid #475569; }
-        .value-input:focus { background: #0f172a; border: 1px solid var(--accent-math); box-shadow: 0 0 8px rgba(56, 189, 248, 0.3); }
-        /* 입력창 우측의 기본 화살표(스핀버튼) 숨기기 */
-        .value-input::-webkit-outer-spin-button, .value-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-        .value-input[type=number] { -moz-appearance: textfield; }
-        
-        .math-result {
-            background: linear-gradient(145deg, #1e293b, #0f172a);
-            border-left: 5px solid var(--accent-math);
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
-        .math-result p { margin: 10px 0; font-size: 15px; line-height: 1.6; }
-        .highlight { color: #facc15; font-weight: bold; font-size: 22px; }
-        .formula { font-family: 'Courier New', monospace; color: #f472b6; background: #334155; padding: 2px 6px; border-radius: 4px;}
-        
+        label {
+            margin-bottom: 8px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        input[type="range"] {
+            width: 150px;
+            cursor: pointer;
+        }
         canvas {
-            background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
-            border: 2px solid #334155; border-radius: 16px;
-            box-shadow: 0 0 40px rgba(0,0,0,0.6);
+            background-color: #0f0f0f;
+            border-radius: 12px;
+            box-shadow: 0 0 20px rgba(74, 222, 128, 0.2);
+            max-width: 100%;
         }
     </style>
 </head>
 <body>
 
-    <h1>🌳 대수학 프랙탈 심화 시뮬레이터</h1>
+    <h1>프랙털 시뮬레이터</h1>
 
-    <div class="container">
-        
-        <div class="sidebar">
-            <div class="panel">
-                <div class="panel-title"><span>📐 대수학 변수 (직접 입력 지원)</span></div>
-                
-                <div class="control-group">
-                    <label>반복 횟수 (n)
-                        <div class="input-wrap"><input type="number" id="valDepth" class="value-input" min="1" max="11" value="9"></div>
-                    </label>
-                    <span class="desc">점화식 깊이 (안전 한계: 최대 11단계)</span>
-                    <input type="range" id="sliderDepth" min="1" max="11" value="9">
-                </div>
-                
-                <div class="control-group">
-                    <label>공비 (r)
-                        <div class="input-wrap"><input type="number" id="valRatio" class="value-input" min="0.5" max="0.77" step="0.01" value="0.74"></div>
-                    </label>
-                    <span class="desc">길이 감소 비율 (수렴 안전선: 최대 0.77)</span>
-                    <input type="range" id="sliderRatio" min="0.5" max="0.77" step="0.01" value="0.74">
-                </div>
-
-                <div class="control-group">
-                    <label>좌측 확산 각도 (θ₁)
-                        <div class="input-wrap"><input type="number" id="valAngleL" class="value-input" min="5" max="90" value="25"><span>°</span></div>
-                    </label>
-                    <input type="range" id="sliderAngleL" min="5" max="90" value="25">
-                </div>
-
-                <div class="control-group">
-                    <label>우측 확산 각도 (θ₂)
-                        <div class="input-wrap"><input type="number" id="valAngleR" class="value-input" min="5" max="90" value="25"><span>°</span></div>
-                    </label>
-                    <input type="range" id="sliderAngleR" min="5" max="90" value="25">
-                </div>
-            </div>
-
-            <div class="panel math-result">
-                <div class="panel-title" style="border-bottom: 2px solid var(--accent-math);"><span>💻 실시간 연산 데이터</span></div>
-                <p>✔ 증식 점화식: <span class="formula">a_n = 2a_{n-1}</span></p>
-                <p>✔ 시간 복잡도: <span class="formula">O(2^n)</span></p>
-                <p>✔ 등비수열의 합 (총 가지 수):<br><span id="valTotal" class="highlight">0</span> 개</p>
-            </div>
+    <div class="controls">
+        <div class="control-group">
+            <label for="angle">가지 회전 각도 (θ): <span id="angleVal">25</span>°</label>
+            <input type="range" id="angle" min="10" max="90" value="25">
         </div>
-
-        <canvas id="fractalCanvas" width="800" height="750"></canvas>
+        <div class="control-group">
+            <label for="ratio">길이 감소 비율 (r): <span id="ratioVal">0.70</span></label>
+            <input type="range" id="ratio" min="0.50" max="0.80" step="0.01" value="0.70">
+        </div>
+        <div class="control-group">
+            <!-- 최대 렌더링 단계(n). 로그 부등식으로 도출된 한계값을 적용하는 부분 -->
+            <label for="depth">렌더링 한계 단계 (n): <span id="depthVal">10</span></label>
+            <input type="range" id="depth" min="1" max="14" value="10">
+        </div>
     </div>
+
+    <canvas id="fractalCanvas" width="800" height="600"></canvas>
 
     <script>
         const canvas = document.getElementById('fractalCanvas');
         const ctx = canvas.getContext('2d');
-        
-        // 제어할 파라미터 목록
-        const params = ['Depth', 'Ratio', 'AngleL', 'AngleR'];
-        const valTotal = document.getElementById('valTotal');
 
-        let totalBranches = 0;
-        const INITIAL_LENGTH = 120; 
-        let isRendering = false;
+        const angleSlider = document.getElementById('angle');
+        const ratioSlider = document.getElementById('ratio');
+        const depthSlider = document.getElementById('depth');
 
-        function drawLeaf() {
+        const angleVal = document.getElementById('angleVal');
+        const ratioVal = document.getElementById('ratioVal');
+        const depthVal = document.getElementById('depthVal');
+
+        // 프랙탈 나무를 그리는 재귀 함수
+        function drawTree(startX, startY, length, angle, depth, branchWidth) {
             ctx.beginPath();
+            ctx.save(); // 현재 캔버스 상태(좌표계) 저장
+
+            // 1. 삼각함수를 활용한 좌표 변환식 적용
+            // x_{n+1} = x_n + L_{n+1}*cos(θ), y_{n+1} = y_n + L_{n+1}*sin(θ)
+            // 캔버스에서는 translate와 rotate를 통해 기준점을 이동시키는 방식을 사용합니다.
+            ctx.translate(startX, startY);
+            ctx.rotate(angle * Math.PI / 180);
             ctx.moveTo(0, 0);
-            ctx.quadraticCurveTo(8, -8, 0, -18);
-            ctx.quadraticCurveTo(-8, -8, 0, 0);
-            ctx.fillStyle = "rgba(244, 114, 182, 0.9)";
-            ctx.shadowBlur = 10;
-            ctx.shadowColor = "#f472b6";
-            ctx.fill();
-            ctx.shadowBlur = 0;
-        }
-
-        function drawTree(length, depth, maxDepth, ratio, angleL, angleR) {
-            if (depth === 0) return;
-            totalBranches++;
-
-            const thickness = Math.pow(depth / maxDepth, 1.5) * 16;
-            const hue = 30 + (maxDepth - depth) * 7; 
-            const lightness = 30 + (maxDepth - depth) * 4;
+            ctx.lineTo(0, -length); // 위쪽 방향으로 선 긋기
             
-            ctx.beginPath();
-            ctx.moveTo(0, 0);
-            ctx.lineTo(0, -length);
-            ctx.strokeStyle = `hsl(${hue}, 60%, ${lightness}%)`;
-            ctx.lineWidth = thickness < 0.5 ? 0.5 : thickness;
-            ctx.lineCap = "round";
+            // 가지 굵기 및 색상 설정
+            ctx.lineWidth = branchWidth;
+            // 끝으로 갈수록(depth가 작을수록) 초록색 잎처럼 보이게 색상 변경
+            ctx.strokeStyle = depth <= 2 ? '#4ade80' : '#8b5a2b';
             ctx.stroke();
 
-            ctx.translate(0, -length);
+            // 2. 로그 부등식으로 도출된 기저 조건 (Base Case) 확인
+            // depth(n)가 0보다 커야만 계속 연산(1픽셀 미만 연산 통제)
+            if (depth > 0) {
+                // 3. 등비수열의 점화식 적용: L_{n+1} = L_n * r
+                const nextLength = length * parseFloat(ratioSlider.value);
+                const splitAngle = parseInt(angleSlider.value);
+                const nextWidth = branchWidth * 0.7;
 
-            if (depth === 1) drawLeaf();
-
-            ctx.save();
-            ctx.rotate(-angleL);
-            drawTree(length * ratio, depth - 1, maxDepth, ratio, angleL, angleR);
-            ctx.restore();
-
-            ctx.save();
-            ctx.rotate(angleR);
-            drawTree(length * ratio, depth - 1, maxDepth, ratio, angleL, angleR);
-            ctx.restore();
-        }
-
-        function render() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            totalBranches = 0;
-
-            // 현재 입력된 값들 가져오기
-            const d = parseInt(document.getElementById('valDepth').value);
-            const r = parseFloat(document.getElementById('valRatio').value);
-            const aL = parseInt(document.getElementById('valAngleL').value) * (Math.PI / 180);
-            const aR = parseInt(document.getElementById('valAngleR').value) * (Math.PI / 180);
-
-            ctx.save();
-            ctx.translate(canvas.width / 2, canvas.height - 40);
-            
-            drawTree(INITIAL_LENGTH, d, d, r, aL, aR);
-            
-            ctx.restore();
-            valTotal.innerText = totalBranches.toLocaleString();
-            
-            isRendering = false;
-        }
-
-        function requestRender() {
-            if (!isRendering) {
-                isRendering = true;
-                requestAnimationFrame(render);
+                // 왼쪽, 오른쪽으로 각각 뻗어나가는 재귀 호출
+                drawTree(0, -length, nextLength, -splitAngle, depth - 1, nextWidth);
+                drawTree(0, -length, nextLength, splitAngle, depth - 1, nextWidth);
             }
+
+            ctx.restore(); // 이전 좌표계로 복구
         }
 
-        // 각 파라미터별로 슬라이더와 입력창 동기화 (Dual-Binding)
-        params.forEach(param => {
-            const slider = document.getElementById('slider' + param);
-            const input = document.getElementById('val' + param);
+        // 화면을 다시 그리는 업데이트 함수
+        function update() {
+            // 화면 지우기
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // 1. 슬라이더를 드래그할 때 -> 숫자창 업데이트 및 렌더링
-            slider.addEventListener('input', (e) => {
-                input.value = e.target.value;
-                requestRender();
-            });
+            // UI 값 텍스트 업데이트
+            angleVal.textContent = angleSlider.value;
+            ratioVal.textContent = parseFloat(ratioSlider.value).toFixed(2);
+            depthVal.textContent = depthSlider.value;
 
-            // 2. 숫자창에 타이핑할 때 -> 슬라이더 썸(막대) 업데이트 및 렌더링
-            input.addEventListener('input', (e) => {
-                if (e.target.value !== '') { // 값이 비어있지 않을 때만 렌더링
-                    slider.value = e.target.value;
-                    requestRender();
-                }
-            });
+            // 초기 시작값 설정
+            const initialX = canvas.width / 2;
+            const initialY = canvas.height;
+            const initialLength = 140; // L_1 초기 나뭇가지 길이
+            const initialAngle = 0;
+            const currentDepth = parseInt(depthSlider.value);
+            const initialWidth = 10;
 
-            // 3. 숫자창 입력 완료(엔터 혹은 클릭 해제) 시 -> 안전 한계선(Min/Max) 검사 방어 코드
-            input.addEventListener('change', (e) => {
-                let val = parseFloat(e.target.value);
-                const min = parseFloat(slider.min);
-                const max = parseFloat(slider.max);
-                
-                // 수학적 한계값을 넘어서면 강제로 안전값으로 되돌림
-                if (isNaN(val) || val < min) val = min;
-                if (val > max) val = max;
-                
-                e.target.value = val;
-                slider.value = val;
-                requestRender();
-            });
-        });
+            // 프랙탈 렌더링 시작
+            drawTree(initialX, initialY, initialLength, initialAngle, currentDepth, initialWidth);
+        }
 
-        // 최초 렌더링
-        render();
+        // 슬라이더 값이 변경될 때마다 화면 실시간 업데이트
+        angleSlider.addEventListener('input', update);
+        ratioSlider.addEventListener('input', update);
+        depthSlider.addEventListener('input', update);
+
+        // 웹페이지 로딩 시 최초 1회 렌더링
+        update();
     </script>
 </body>
 </html>
