@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>프랙탈 나무</title>
+    <title>프랙탈 시뮬레이션</title>
     <style>
         body {
             font-family: 'Pretendard', 'Malgun Gothic', sans-serif;
@@ -18,6 +18,31 @@
         h1 { margin-bottom: 5px; text-align: center; }
         p { color: #aaaaaa; margin-bottom: 20px; text-align: center; line-height: 1.5; }
         
+        /* 프랙탈 선택 버튼 */
+        .tab-menu {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .tab-btn {
+            padding: 12px 24px;
+            font-size: 15px;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            background-color: #333;
+            color: #fff;
+            transition: 0.3s;
+        }
+        .tab-btn.active {
+            background-color: #4ade80;
+            color: #000;
+            box-shadow: 0 0 15px rgba(74, 222, 128, 0.4);
+        }
+
         .controls {
             background-color: #2a2a2a;
             padding: 20px 30px;
@@ -31,58 +56,32 @@
             width: 100%;
             max-width: 800px;
         }
-        .control-group {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
+        .control-group { display: flex; flex-direction: column; align-items: center; }
         label { margin-bottom: 8px; font-size: 14px; font-weight: bold; }
         input[type="range"] { width: 150px; cursor: pointer; }
-        
-        /* 2D / 3D 전환 버튼 스타일 */
-        .mode-switch {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 15px;
-        }
-        .mode-btn {
-            padding: 10px 20px;
-            font-size: 16px;
-            font-weight: bold;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            background-color: #333;
-            color: #fff;
-        }
-        .mode-btn.active {
-            background-color: #4ade80;
-            color: #000;
-            box-shadow: 0 0 15px rgba(74, 222, 128, 0.4);
-        }
+        .disabled { opacity: 0.4; pointer-events: none; }
 
-        /* 뷰어 컨테이너 */
-        .viewer-container {
-            width: 800px;
-            height: 500px;
-            position: relative;
+        canvas {
             background-color: #0f0f0f;
             border-radius: 12px;
             box-shadow: 0 0 20px rgba(74, 222, 128, 0.15);
+            max-width: 100%;
             border: 1px solid #333;
-            overflow: hidden;
         }
-        canvas { display: block; position: absolute; top: 0; left: 0; }
         
-        /* 실시간 연산 데이터 패널 */
+        /* 연산 데이터 패널 */
+        .panel-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            width: 100%;
+            max-width: 800px;
+            margin-top: 20px;
+        }
         .data-panel, .formula-panel {
-            margin-top: 15px;
             background-color: #222;
             padding: 20px;
             border-radius: 8px;
-            width: 100%;
-            max-width: 760px;
             box-shadow: 0 4px 10px rgba(0,0,0,0.3);
         }
         .data-panel { border-left: 4px solid #4ade80; }
@@ -101,291 +100,255 @@
         .status-warn { color: #facc15; }
         .status-stop { color: #ef4444; }
 
-        /* 수식 패널 스타일 */
-        .formula-box {
-            background: #1e1e1e;
-            padding: 15px;
-            border-radius: 6px;
-            border: 1px solid #333;
-            margin-bottom: 10px;
-        }
+        .formula-box { background: #1e1e1e; padding: 15px; border-radius: 6px; border: 1px solid #333; margin-bottom: 10px; }
         .formula-box:last-child { margin-bottom: 0; }
-        .formula-box h4 {
-            margin: 0 0 10px 0;
-            color: #aaa;
-            font-size: 13px;
-        }
-        .math-expr {
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 15px;
-            color: #e2e8f0;
-            line-height: 1.6;
-            background-color: #111;
-            padding: 10px;
-            border-radius: 4px;
-        }
+        .formula-box h4 { margin: 0 0 10px 0; color: #aaa; font-size: 13px; }
+        .math-expr { font-family: 'Courier New', Courier, monospace; font-size: 15px; color: #e2e8f0; line-height: 1.6; background-color: #111; padding: 10px; border-radius: 4px; }
         .highlight { color: #3b82f6; font-weight: bold; font-size: 17px; }
     </style>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 </head>
 <body>
 
-    <h1>프랙탈 나무 시뮬레이터 (2D & 3D)</h1>
+    <h1>프랙탈 시뮬레이션</h1>
 
-    <div class="mode-switch">
-        <button id="btn2D" class="mode-btn active" onclick="setMode('2D')">평면(2D) 모드</button>
-        <button id="btn3D" class="mode-btn" onclick="setMode('3D')">입체(3D) 모드</button>
+    <div class="tab-menu">
+        <button class="tab-btn active" onclick="setFractal('tree')">🌳 프랙탈 나무</button>
+        <button class="tab-btn" onclick="setFractal('sierpinski')">🔺 시에르핀스키 삼각형</button>
+        <button class="tab-btn" onclick="setFractal('koch')">❄️ 코크 눈꽃</button>
+        <button class="tab-btn" onclick="setFractal('cantor')">➖ 칸토어 집합</button>
     </div>
 
     <div class="controls">
-        <div class="control-group">
-            <label for="angle">가지 회전 각도 (θ): <span id="angleVal">25</span>°</label>
+        <div class="control-group" id="ctrl-angle">
+            <label for="angle">가지 회전 각도: <span id="angleVal">25</span>°</label>
             <input type="range" id="angle" min="10" max="90" value="25">
         </div>
-        <div class="control-group">
+        <div class="control-group" id="ctrl-ratio">
             <label for="ratio">길이 감소 비율 (r): <span id="ratioVal">0.70</span></label>
             <input type="range" id="ratio" min="0.50" max="0.80" step="0.01" value="0.70">
         </div>
         <div class="control-group">
-            <label for="depth">렌더링 한계 단계 (n): <span id="depthVal">10</span></label>
-            <input type="range" id="depth" min="1" max="14" value="10">
+            <label for="depth">한계 단계 (n): <span id="depthVal">6</span></label>
+            <input type="range" id="depth" min="1" max="12" value="6">
         </div>
     </div>
 
-    <div class="viewer-container" id="viewer">
-        <canvas id="canvas2D" width="800" height="500"></canvas>
-    </div>
+    <canvas id="fractalCanvas" width="800" height="500"></canvas>
 
-    <div class="data-panel">
-        <h3 class="panel-title data-title">📊 연산 결과</h3>
-        <div class="data-grid">
-            <div class="data-item">
-                <span class="data-label">총 나뭇가지 개수</span>
-                <span class="data-value" id="calc-branches">0 개</span>
-            </div>
-            <div class="data-item">
-                <span class="data-label">최종 단계 가지 1개의 길이</span>
-                <span class="data-value" id="calc-smallest">0 px</span>
-            </div>
-            <div class="data-item">
-                <span class="data-label">모든 가지 길이의 총합</span>
-                <span class="data-value" id="calc-total-length">0 px</span>
-            </div>
-            <div class="data-item">
-                <span class="data-label">알고리즘 상태 (1px 기준)</span>
-                <span class="data-value status-safe" id="calc-status">안전</span>
+    <div class="panel-container">
+        <div class="data-panel">
+            <h3 class="panel-title data-title">📊 연산 결과</h3>
+            <div class="data-grid">
+                <div class="data-item">
+                    <span class="data-label">분할된 총 개수</span>
+                    <span class="data-value" id="calc-count">0 개</span>
+                </div>
+                <div class="data-item">
+                    <span class="data-label">최종 단계 1개의 길이 (L_n)</span>
+                    <span class="data-value" id="calc-smallest">0 px</span>
+                </div>
+                <div class="data-item">
+                    <span class="data-label">알고리즘 상태 (1px 기준)</span>
+                    <span class="data-value status-safe" id="calc-status">안전</span>
+                </div>
             </div>
         </div>
-    </div>
 
-    <div class="formula-panel">
-        <h3 class="panel-title formula-title">📐 증명 수식 (수열과 상용로그)</h3>
-        
-        <div class="formula-box">
-            <h4>1. 등비수열의 점화식 (최종 단계 가지 길이 예측)</h4>
-            <div class="math-expr" id="formula-length">수식 계산 중...</div>
-        </div>
-
-        <div class="formula-box">
-            <h4>2. 등비수열의 합 (총 나뭇가지 개수 계산)</h4>
-            <div class="math-expr" id="formula-branches">수식 계산 중...</div>
-        </div>
-
-        <div class="formula-box">
-            <h4>3. 상용로그 부등식 (1px 미만 한계점 역산)</h4>
-            <div class="math-expr" id="formula-log">수식 계산 중...</div>
+        <div class="formula-panel">
+            <h3 class="panel-title formula-title">📐 대수학 수식 (상용로그 적용)</h3>
+            <div class="formula-box">
+                <h4>1. 등비수열의 점화식 (최소 단위 길이 예측)</h4>
+                <div class="math-expr" id="formula-length">수식 계산 중...</div>
+            </div>
+            <div class="formula-box">
+                <h4>2. 상용로그 부등식 (메모리 과부하 한계점 역산)</h4>
+                <div class="math-expr" id="formula-log">수식 계산 중...</div>
+            </div>
         </div>
     </div>
 
     <script>
-        // --- 전역 변수 및 설정 ---
-        let currentMode = '2D';
-        const L1 = 120; 
-        const L1_3D = 30; 
+        const canvas = document.getElementById('fractalCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        let currentFractal = 'tree';
 
         const angleSlider = document.getElementById('angle');
         const ratioSlider = document.getElementById('ratio');
         const depthSlider = document.getElementById('depth');
-        
-        const canvas2D = document.getElementById('canvas2D');
-        const ctx2D = canvas2D.getContext('2d');
-        const viewer = document.getElementById('viewer');
 
-        // --- 3D 환경 설정 ---
-        const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(45, 800/500, 0.1, 1000);
-        camera.position.set(0, 50, 150);
-        
-        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-        renderer.setSize(800, 500);
-        renderer.domElement.style.display = 'none';
-        viewer.appendChild(renderer.domElement);
-        
-        const controls = new THREE.OrbitControls(camera, renderer.domElement);
-        controls.target.set(0, 40, 0);
-        controls.update();
+        // 프랙탈 종류 변경 함수
+        function setFractal(type) {
+            currentFractal = type;
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
 
-        let tree3DObject = null;
-
-        // --- 2D 프랙탈 렌더링 ---
-        function drawTree2D(startX, startY, length, angle, depth, branchWidth) {
-            ctx2D.beginPath();
-            ctx2D.save(); 
-            ctx2D.translate(startX, startY);
-            ctx2D.rotate(angle * Math.PI / 180);
-            ctx2D.moveTo(0, 0);
-            ctx2D.lineTo(0, -length); 
-            ctx2D.lineWidth = branchWidth;
-            ctx2D.strokeStyle = depth <= 2 ? '#4ade80' : '#8b5a2b';
-            ctx2D.stroke();
-
-            if (depth > 0) {
-                const r = parseFloat(ratioSlider.value);
-                const a = parseInt(angleSlider.value);
-                drawTree2D(0, -length, length * r, -a, depth - 1, branchWidth * 0.7);
-                drawTree2D(0, -length, length * r, a, depth - 1, branchWidth * 0.7);
-            }
-            ctx2D.restore(); 
-        }
-
-        // --- 3D 프랙탈 렌더링 ---
-        function generateTree3D(r, angleDeg, maxDepth) {
-            if (tree3DObject) scene.remove(tree3DObject);
-            
-            const vertices = [];
-            const colors = [];
-            const angleRad = THREE.MathUtils.degToRad(angleDeg);
-            
-            const colorTrunk = new THREE.Color('#8b5a2b');
-            const colorLeaf = new THREE.Color('#4ade80');
-
-            function recurse3D(matrix, length, depth) {
-                const p1 = new THREE.Vector3().setFromMatrixPosition(matrix);
-                const m2 = matrix.clone().multiply(new THREE.Matrix4().makeTranslation(0, length, 0));
-                const p2 = new THREE.Vector3().setFromMatrixPosition(m2);
-
-                vertices.push(p1.x, p1.y, p1.z, p2.x, p2.y, p2.z);
-
-                const lerpFactor = depth / maxDepth;
-                const c = colorLeaf.clone().lerp(colorTrunk, lerpFactor);
-                colors.push(c.r, c.g, c.b, c.r, c.g, c.b);
-
-                if (depth > 0) {
-                    const nextLen = length * r;
-                    const twist = new THREE.Matrix4().makeRotationY(Math.PI / 2);
-                    const mLeft = m2.clone().multiply(twist).multiply(new THREE.Matrix4().makeRotationZ(angleRad));
-                    const mRight = m2.clone().multiply(twist).multiply(new THREE.Matrix4().makeRotationZ(-angleRad));
-                    
-                    recurse3D(mLeft, nextLen, depth - 1);
-                    recurse3D(mRight, nextLen, depth - 1);
-                }
-            }
-
-            recurse3D(new THREE.Matrix4(), L1_3D, maxDepth);
-
-            const geometry = new THREE.BufferGeometry();
-            geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-            geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-            
-            const material = new THREE.LineBasicMaterial({ vertexColors: true });
-            tree3DObject = new THREE.LineSegments(geometry, material);
-            tree3DObject.position.y = -20;
-            scene.add(tree3DObject);
-        }
-
-        // --- 패널 데이터 및 수식 업데이트 ---
-        function updatePanels(r, n) {
-            // 1. 연산 결과 패널
-            const totalBranches = Math.pow(2, n) - 1;
-            document.getElementById('calc-branches').textContent = totalBranches.toLocaleString() + " 개";
-
-            const smallestLength = L1 * Math.pow(r, n - 1);
-            document.getElementById('calc-smallest').textContent = smallestLength.toFixed(2) + " px";
-
-            let totalLength = (2 * r === 1) ? L1 * n : L1 * (1 - Math.pow(2 * r, n)) / (1 - (2 * r));
-            document.getElementById('calc-total-length').textContent = totalLength.toLocaleString(undefined, {maximumFractionDigits: 0}) + " px";
-
-            const statusEl = document.getElementById('calc-status');
-            if (smallestLength < 1) {
-                statusEl.textContent = "최적화 발동 (1px 미만 통제됨)";
-                statusEl.className = "data-value status-stop";
-            } else if (smallestLength < 5) {
-                statusEl.textContent = "경고 (한계점 접근 중)";
-                statusEl.className = "data-value status-warn";
+            // 프랙탈별 컨트롤러 활성/비활성 처리
+            if(type === 'tree') {
+                document.getElementById('ctrl-angle').classList.remove('disabled');
+                document.getElementById('ctrl-ratio').classList.remove('disabled');
+                depthSlider.max = 14;
             } else {
-                statusEl.textContent = "안전 (추가 연산 여유 있음)";
-                statusEl.className = "data-value status-safe";
+                document.getElementById('ctrl-angle').classList.add('disabled');
+                document.getElementById('ctrl-ratio').classList.add('disabled');
+                if(type === 'sierpinski') depthSlider.max = 10;
+                if(type === 'koch') depthSlider.max = 8;
+                if(type === 'cantor') depthSlider.max = 10;
             }
-
-            // 2. 대수학 증명 수식 패널
-            // 식 1: 점화식
-            document.getElementById('formula-length').innerHTML = 
-                `L<sub>n</sub> = L<sub>1</sub> × r<sup>n-1</sup> <br>` +
-                `L<sub>${n}</sub> = 120 × ${r.toFixed(2)}<sup>${n}-1</sup> <br>` + 
-                `=> <span class="highlight">${smallestLength.toFixed(2)} px</span>`;
-
-            // 식 2: 수열의 합
-            document.getElementById('formula-branches').innerHTML = 
-                `S<sub>n</sub> = 2<sup>1</sup> + 2<sup>2</sup> + ... + 2<sup>n-1</sup> = 2<sup>n</sup> - 1 <br>` +
-                `S<sub>${n}</sub> = 2<sup>${n}</sup> - 1 <br>` +
-                `=> <span class="highlight">${totalBranches.toLocaleString()} 개</span>`;
-
-            // 식 3: 로그 부등식 (Math.log10 = 상용로그)
-            const logL1 = Math.log10(L1);
-            const logR = Math.log10(r);
-            const limitN = 1 - (logL1 / logR); // 로그의 성질을 이용한 안전 한계 역산
-            
-            document.getElementById('formula-log').innerHTML = 
-                `L<sub>1</sub> × r<sup>n-1</sup> < 1 &nbsp; (양변에 상용로그 log 취함) <br>` +
-                `n > 1 - { log(L<sub>1</sub>) / log(r) } <br>` +
-                `n > 1 - { log(120) / log(${r.toFixed(2)}) } <br>` +
-                `n > 1 - { ${logL1.toFixed(3)} / ${logR.toFixed(3)} } <br>` +
-                `=> <span class="highlight">n > ${limitN.toFixed(2)}</span> &nbsp; (메모리 안전 한계 단계: <b>${Math.floor(limitN)}</b> 단계)`;
-        }
-
-        // --- 화면 갱신 메인 루틴 ---
-        function update() {
-            const r = parseFloat(ratioSlider.value);
-            const n = parseInt(depthSlider.value);
-            const angle = parseInt(angleSlider.value);
-
-            document.getElementById('angleVal').textContent = angle;
-            document.getElementById('ratioVal').textContent = r.toFixed(2);
-            document.getElementById('depthVal').textContent = n;
-
-            updatePanels(r, n);
-
-            if (currentMode === '2D') {
-                ctx2D.clearRect(0, 0, canvas2D.width, canvas2D.height);
-                drawTree2D(canvas2D.width / 2, canvas2D.height, L1, 0, n, 10);
-            } else {
-                generateTree3D(r, angle, n);
-            }
-        }
-
-        // --- 모드 전환 ---
-        function setMode(mode) {
-            currentMode = mode;
-            document.getElementById('btn2D').classList.toggle('active', mode === '2D');
-            document.getElementById('btn3D').classList.toggle('active', mode === '3D');
-            
-            if (mode === '2D') {
-                canvas2D.style.display = 'block';
-                renderer.domElement.style.display = 'none';
-            } else {
-                canvas2D.style.display = 'none';
-                renderer.domElement.style.display = 'block';
-            }
+            depthSlider.value = Math.min(depthSlider.value, depthSlider.max);
             update();
         }
 
-        // 3D 렌더링 루프
-        function animate3D() {
-            requestAnimationFrame(animate3D);
-            if (currentMode === '3D') {
-                controls.update();
-                renderer.render(scene, camera);
+        // ================= 그리기 알고리즘 (재귀 함수) =================
+        // 1. 프랙탈 나무
+        function drawTree(x, y, len, angle, depth) {
+            ctx.beginPath(); ctx.save();
+            ctx.translate(x, y); ctx.rotate(angle * Math.PI / 180);
+            ctx.moveTo(0, 0); ctx.lineTo(0, -len);
+            ctx.strokeStyle = depth <= 2 ? '#4ade80' : '#8b5a2b';
+            ctx.lineWidth = depth; ctx.stroke();
+
+            if (depth > 1) {
+                const r = parseFloat(ratioSlider.value);
+                const a = parseInt(angleSlider.value);
+                drawTree(0, -len, len * r, -a, depth - 1);
+                drawTree(0, -len, len * r, a, depth - 1);
+            }
+            ctx.restore();
+        }
+
+        // 2. 시에르핀스키 삼각형
+        function drawSierpinski(x, y, size, depth) {
+            if (depth === 1) {
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+                ctx.lineTo(x + size / 2, y - size * Math.sqrt(3) / 2);
+                ctx.lineTo(x + size, y);
+                ctx.closePath();
+                ctx.strokeStyle = '#3b82f6'; ctx.lineWidth = 1; ctx.stroke();
+                ctx.fillStyle = 'rgba(59, 130, 246, 0.2)'; ctx.fill();
+            } else {
+                drawSierpinski(x, y, size / 2, depth - 1);
+                drawSierpinski(x + size / 2, y, size / 2, depth - 1);
+                drawSierpinski(x + size / 4, y - (size / 2) * Math.sqrt(3) / 2, size / 2, depth - 1);
+            }
+        }
+
+        // 3. 코크 눈꽃 (선분 분할)
+        function drawKochLine(x1, y1, x2, y2, depth) {
+            if (depth === 1) {
+                ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
+                ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 1; ctx.stroke();
+            } else {
+                const dx = x2 - x1, dy = y2 - y1;
+                const p1x = x1 + dx / 3, p1y = y1 + dy / 3;
+                const p3x = x1 + 2 * dx / 3, p3y = y1 + 2 * dy / 3;
+                const p2x = p1x + (dx / 3) * Math.cos(-Math.PI/3) - (dy / 3) * Math.sin(-Math.PI/3);
+                const p2y = p1y + (dx / 3) * Math.sin(-Math.PI/3) + (dy / 3) * Math.cos(-Math.PI/3);
+
+                drawKochLine(x1, y1, p1x, p1y, depth - 1);
+                drawKochLine(p1x, p1y, p2x, p2y, depth - 1);
+                drawKochLine(p2x, p2y, p3x, p3y, depth - 1);
+                drawKochLine(p3x, p3y, x2, y2, depth - 1);
+            }
+        }
+
+        // 4. 칸토어 집합
+        function drawCantor(x, y, len, depth) {
+            ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + len, y);
+            ctx.strokeStyle = '#facc15'; ctx.lineWidth = 8; ctx.stroke();
+            if (depth > 1) {
+                drawCantor(x, y + 40, len / 3, depth - 1);
+                drawCantor(x + 2 * len / 3, y + 40, len / 3, depth - 1);
+            }
+        }
+
+        // ================= 수학 연산 및 패널 업데이트 =================
+        function updateMathPanels(n) {
+            let L1, r, countFormula, lengthFormula, logLimit, totalCount, smallestLength;
+
+            // 프랙탈별 수학적 특징 정의
+            if (currentFractal === 'tree') {
+                L1 = 140; r = parseFloat(ratioSlider.value);
+                totalCount = Math.pow(2, n) - 1;
+                smallestLength = L1 * Math.pow(r, n - 1);
+                countFormula = `2<sup>n</sup> - 1`;
+            } else if (currentFractal === 'sierpinski') {
+                L1 = 400; r = 0.5; // 변의 길이는 절반씩 줆
+                totalCount = Math.pow(3, n - 1);
+                smallestLength = L1 * Math.pow(r, n - 1);
+                countFormula = `3<sup>n-1</sup>`;
+            } else if (currentFractal === 'koch') {
+                L1 = 300; r = 1/3;
+                totalCount = 3 * Math.pow(4, n - 1); // 눈꽃은 3면에서 시작
+                smallestLength = L1 * Math.pow(r, n - 1);
+                countFormula = `3 × 4<sup>n-1</sup>`;
+            } else if (currentFractal === 'cantor') {
+                L1 = 600; r = 1/3;
+                totalCount = Math.pow(2, n - 1);
+                smallestLength = L1 * Math.pow(r, n - 1);
+                countFormula = `2<sup>n-1</sup>`;
+            }
+
+            // 로그 부등식 역산 (n > 1 - log(L1)/log(r))
+            const logL1 = Math.log10(L1);
+            const logR = Math.log10(r);
+            const limitN = 1 - (logL1 / logR);
+
+            // 1. 데이터 패널 업데이트
+            document.getElementById('calc-count').textContent = totalCount.toLocaleString() + " 개";
+            document.getElementById('calc-smallest').textContent = smallestLength.toFixed(2) + " px";
+            
+            const statusEl = document.getElementById('calc-status');
+            if (smallestLength < 1) {
+                statusEl.textContent = "최적화 발동 (1px 미만 통제됨)"; statusEl.className = "data-value status-stop";
+            } else if (smallestLength < 3) {
+                statusEl.textContent = "경고 (한계점 근접)"; statusEl.className = "data-value status-warn";
+            } else {
+                statusEl.textContent = "안전 (연산 여유 있음)"; statusEl.className = "data-value status-safe";
+            }
+
+            // 2. 수식 패널 업데이트
+            const rText = (currentFractal === 'koch' || currentFractal === 'cantor') ? '(1/3)' : r.toFixed(2);
+            document.getElementById('formula-length').innerHTML = 
+                `L<sub>n</sub> = L<sub>1</sub> × r<sup>n-1</sup> <br>` +
+                `L<sub>${n}</sub> = ${L1} × ${rText}<sup>${n}-1</sup> <br>` + 
+                `=> <span class="highlight">${smallestLength.toFixed(2)} px</span> &nbsp; (분할 개수: ${countFormula} = ${totalCount.toLocaleString()}개)`;
+
+            document.getElementById('formula-log').innerHTML = 
+                `L<sub>1</sub> × r<sup>n-1</sup> < 1 &nbsp; (양변에 상용로그 log 취함) <br>` +
+                `n > 1 - { log(L<sub>1</sub>) / log(r) } <br>` +
+                `n > 1 - { log(${L1}) / log(${rText}) } <br>` +
+                `=> <span class="highlight">n > ${limitN.toFixed(2)}</span> &nbsp; (안전 한계 기저 조건: <b>${Math.floor(limitN)}</b> 단계)`;
+        }
+
+        // ================= 메인 렌더링 =================
+        function update() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const n = parseInt(depthSlider.value);
+            
+            document.getElementById('angleVal').textContent = angleSlider.value;
+            document.getElementById('ratioVal').textContent = parseFloat(ratioSlider.value).toFixed(2);
+            document.getElementById('depthVal').textContent = n;
+
+            // 수학 연산 업데이트
+            updateMathPanels(n);
+
+            // 프랙탈 렌더링
+            if (currentFractal === 'tree') {
+                drawTree(canvas.width / 2, canvas.height, 140, 0, n);
+            } else if (currentFractal === 'sierpinski') {
+                drawSierpinski(canvas.width / 2 - 200, canvas.height - 50, 400, n);
+            } else if (currentFractal === 'koch') {
+                // 눈꽃 모양 (정삼각형 3면)
+                const x1 = canvas.width/2 - 150, y1 = canvas.height/2 + 80;
+                const x2 = canvas.width/2 + 150, y2 = canvas.height/2 + 80;
+                const x3 = canvas.width/2, y3 = canvas.height/2 - 150 * Math.sqrt(3) + 80;
+                drawKochLine(x1, y1, x3, y3, n);
+                drawKochLine(x3, y3, x2, y2, n);
+                drawKochLine(x2, y2, x1, y1, n);
+            } else if (currentFractal === 'cantor') {
+                drawCantor(100, 50, 600, n);
             }
         }
 
@@ -394,7 +357,6 @@
         depthSlider.addEventListener('input', update);
         
         update();
-        animate3D();
     </script>
 </body>
 </html>
