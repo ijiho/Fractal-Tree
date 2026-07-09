@@ -15,49 +15,67 @@
             margin: 0;
             padding: 20px;
         }
-        h1 {
-            margin-bottom: 5px;
-            text-align: center;
-        }
-        p {
-            color: #aaaaaa;
-            margin-bottom: 20px;
-            text-align: center;
-            line-height: 1.5;
-        }
+        h1 { margin-bottom: 5px; text-align: center; }
+        p { color: #aaaaaa; margin-bottom: 20px; text-align: center; line-height: 1.5; }
+        
         .controls {
             background-color: #2a2a2a;
             padding: 20px 30px;
             border-radius: 12px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.5);
             display: flex;
-            gap: 30px;
+            gap: 25px;
             margin-bottom: 20px;
             flex-wrap: wrap;
             justify-content: center;
+            width: 100%;
+            max-width: 800px;
         }
         .control-group {
             display: flex;
             flex-direction: column;
             align-items: center;
         }
-        label {
-            margin-bottom: 8px;
-            font-size: 14px;
+        label { margin-bottom: 8px; font-size: 14px; font-weight: bold; }
+        input[type="range"] { width: 150px; cursor: pointer; }
+        
+        /* 2D / 3D 전환 버튼 스타일 */
+        .mode-switch {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .mode-btn {
+            padding: 10px 20px;
+            font-size: 16px;
             font-weight: bold;
-        }
-        input[type="range"] {
-            width: 150px;
+            border: none;
+            border-radius: 8px;
             cursor: pointer;
+            transition: all 0.3s ease;
+            background-color: #333;
+            color: #fff;
         }
-        canvas {
+        .mode-btn.active {
+            background-color: #4ade80;
+            color: #000;
+            box-shadow: 0 0 15px rgba(74, 222, 128, 0.4);
+        }
+
+        /* 뷰어 컨테이너 (2D 캔버스와 3D WebGL을 담는 공간) */
+        .viewer-container {
+            width: 800px;
+            height: 500px;
+            position: relative;
             background-color: #0f0f0f;
             border-radius: 12px;
             box-shadow: 0 0 20px rgba(74, 222, 128, 0.15);
-            max-width: 100%;
             border: 1px solid #333;
+            overflow: hidden;
         }
-        /* 실시간 연산 데이터 패널 스타일 */
+        canvas { display: block; position: absolute; top: 0; left: 0; }
+        
+        /* 실시간 연산 데이터 패널 */
         .data-panel {
             margin-top: 20px;
             background-color: #222;
@@ -68,43 +86,28 @@
             max-width: 760px;
             box-shadow: 0 4px 10px rgba(0,0,0,0.3);
         }
-        .data-panel h3 {
-            margin: 0 0 15px 0;
-            color: #4ade80;
-            font-size: 16px;
-        }
-        .data-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-        }
-        .data-item {
-            background: #1e1e1e;
-            padding: 12px;
-            border-radius: 6px;
-            border: 1px solid #333;
-        }
-        .data-label {
-            font-size: 12px;
-            color: #888;
-            margin-bottom: 5px;
-            display: block;
-        }
-        .data-value {
-            font-size: 16px;
-            font-weight: bold;
-            color: #fff;
-        }
+        .data-panel h3 { margin: 0 0 15px 0; color: #4ade80; font-size: 16px; }
+        .data-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; }
+        .data-item { background: #1e1e1e; padding: 12px; border-radius: 6px; border: 1px solid #333; }
+        .data-label { font-size: 12px; color: #888; margin-bottom: 5px; display: block; }
+        .data-value { font-size: 16px; font-weight: bold; color: #fff; }
         .status-safe { color: #4ade80; }
         .status-warn { color: #facc15; }
         .status-stop { color: #ef4444; }
     </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 </head>
 <body>
 
-    <h1>프랙탈 나무 시뮬레이터</h1>
+    <h1>프랙탈 나무 시뮬레이터 (2D & 3D)</h1>
+       <small>마우스로 3D 공간을 드래그해 보세요!</small></p>
 
-    <!-- 사용자 입력 컨트롤러 -->
+    <div class="mode-switch">
+        <button id="btn2D" class="mode-btn active" onclick="setMode('2D')">평면(2D) 모드</button>
+        <button id="btn3D" class="mode-btn" onclick="setMode('3D')">입체(3D) 모드</button>
+    </div>
+
     <div class="controls">
         <div class="control-group">
             <label for="angle">가지 회전 각도 (θ): <span id="angleVal">25</span>°</label>
@@ -120,10 +123,10 @@
         </div>
     </div>
 
-    <!-- 시각화 캔버스 -->
-    <canvas id="fractalCanvas" width="800" height="500"></canvas>
+    <div class="viewer-container" id="viewer">
+        <canvas id="canvas2D" width="800" height="500"></canvas>
+    </div>
 
-    <!-- 실시간 연산 데이터 패널 -->
     <div class="data-panel">
         <h3>📊 실시간 대수학 연산 데이터</h3>
         <div class="data-grid">
@@ -132,11 +135,11 @@
                 <span class="data-value" id="calc-branches">0 개</span>
             </div>
             <div class="data-item">
-                <span class="data-label">최종 단계 가지 1개의 길이 (L_n)</span>
+                <span class="data-label">최종 단계 1가지의 길이 (L_n)</span>
                 <span class="data-value" id="calc-smallest">0 px</span>
             </div>
             <div class="data-item">
-                <span class="data-label">모든 가지의 총 길이 합산</span>
+                <span class="data-label">모든 가지 길이의 총합</span>
                 <span class="data-value" id="calc-total-length">0 px</span>
             </div>
             <div class="data-item">
@@ -147,67 +150,127 @@
     </div>
 
     <script>
-        const canvas = document.getElementById('fractalCanvas');
-        const ctx = canvas.getContext('2d');
+        // --- 1. 전역 변수 및 UI 요소 ---
+        let currentMode = '2D';
+        const L1 = 120; // 2D 초기 길이
+        const L1_3D = 30; // 3D 비율 조정을 위한 초기 길이
 
         const angleSlider = document.getElementById('angle');
         const ratioSlider = document.getElementById('ratio');
         const depthSlider = document.getElementById('depth');
+        
+        const canvas2D = document.getElementById('canvas2D');
+        const ctx2D = canvas2D.getContext('2d');
+        const viewer = document.getElementById('viewer');
 
-        const angleVal = document.getElementById('angleVal');
-        const ratioVal = document.getElementById('ratioVal');
-        const depthVal = document.getElementById('depthVal');
+        // --- 2. 3D(Three.js) 환경 설정 ---
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(45, 800/500, 0.1, 1000);
+        camera.position.set(0, 50, 150);
+        
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(800, 500);
+        renderer.domElement.style.display = 'none'; // 처음엔 숨김
+        viewer.appendChild(renderer.domElement);
+        
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.target.set(0, 40, 0);
+        controls.update();
 
-        const L1 = 120; // 초기 몸통 길이
+        let tree3DObject = null; // 3D 나무 객체 저장용
 
-        // 1. 프랙탈 나무 그리기 (재귀 함수 - 정보 알고리즘)
-        function drawTree(startX, startY, length, angle, depth, branchWidth) {
-            ctx.beginPath();
-            ctx.save(); 
+        // --- 3. 2D 프랙탈 렌더링 함수 ---
+        function drawTree2D(startX, startY, length, angle, depth, branchWidth) {
+            ctx2D.beginPath();
+            ctx2D.save(); 
+            ctx2D.translate(startX, startY);
+            ctx2D.rotate(angle * Math.PI / 180);
+            ctx2D.moveTo(0, 0);
+            ctx2D.lineTo(0, -length); 
+            ctx2D.lineWidth = branchWidth;
+            ctx2D.strokeStyle = depth <= 2 ? '#4ade80' : '#8b5a2b';
+            ctx2D.stroke();
 
-            // 좌표 변환 (삼각함수 원리 적용)
-            ctx.translate(startX, startY);
-            ctx.rotate(angle * Math.PI / 180);
-            ctx.moveTo(0, 0);
-            ctx.lineTo(0, -length); 
-            
-            ctx.lineWidth = branchWidth;
-            ctx.strokeStyle = depth <= 2 ? '#4ade80' : '#8b5a2b';
-            ctx.stroke();
-
-            // 기저 조건 (Base Case)
             if (depth > 0) {
-                const nextLength = length * parseFloat(ratioSlider.value);
-                const splitAngle = parseInt(angleSlider.value);
-                const nextWidth = branchWidth * 0.7;
-
-                drawTree(0, -length, nextLength, -splitAngle, depth - 1, nextWidth);
-                drawTree(0, -length, nextLength, splitAngle, depth - 1, nextWidth);
+                const r = parseFloat(ratioSlider.value);
+                const a = parseInt(angleSlider.value);
+                drawTree2D(0, -length, length * r, -a, depth - 1, branchWidth * 0.7);
+                drawTree2D(0, -length, length * r, a, depth - 1, branchWidth * 0.7);
             }
-
-            ctx.restore(); 
+            ctx2D.restore(); 
         }
 
-        // 2. 실시간 수학 연산 데이터 계산 및 표시 (대수학)
+        // --- 4. 3D 프랙탈 렌더링 함수 (대수학 행렬 변환) ---
+        function generateTree3D(r, angleDeg, maxDepth) {
+            if (tree3DObject) scene.remove(tree3DObject); // 기존 나무 삭제
+            
+            const vertices = [];
+            const colors = [];
+            const angleRad = THREE.MathUtils.degToRad(angleDeg);
+            
+            // 색상 보간 함수 (뿌리는 갈색, 끝은 초록색)
+            const colorTrunk = new THREE.Color('#8b5a2b');
+            const colorLeaf = new THREE.Color('#4ade80');
+
+            // 3D 재귀 함수 (행렬을 이용해 좌표와 각도를 동시 계산)
+            function recurse3D(matrix, length, depth) {
+                // 시작점 계산
+                const p1 = new THREE.Vector3().setFromMatrixPosition(matrix);
+                // 끝점 계산 (Y축 위로 length만큼 이동)
+                const m2 = matrix.clone().multiply(new THREE.Matrix4().makeTranslation(0, length, 0));
+                const p2 = new THREE.Vector3().setFromMatrixPosition(m2);
+
+                vertices.push(p1.x, p1.y, p1.z, p2.x, p2.y, p2.z);
+
+                // 깊이에 따른 색상 결정
+                const lerpFactor = depth / maxDepth;
+                const c = colorLeaf.clone().lerp(colorTrunk, lerpFactor);
+                colors.push(c.r, c.g, c.b, c.r, c.g, c.b);
+
+                if (depth > 0) {
+                    const nextLen = length * r;
+                    // Y축을 기준으로 90도 비틀어서(Twist) 3D 입체감을 생성! (수식의 원리 동일)
+                    const twist = new THREE.Matrix4().makeRotationY(Math.PI / 2);
+                    
+                    const mLeft = m2.clone().multiply(twist).multiply(new THREE.Matrix4().makeRotationZ(angleRad));
+                    const mRight = m2.clone().multiply(twist).multiply(new THREE.Matrix4().makeRotationZ(-angleRad));
+                    
+                    recurse3D(mLeft, nextLen, depth - 1);
+                    recurse3D(mRight, nextLen, depth - 1);
+                }
+            }
+
+            const initialMatrix = new THREE.Matrix4();
+            recurse3D(initialMatrix, L1_3D, maxDepth);
+
+            // BufferGeometry로 성능 최적화 (16000개의 선도 랙 없이 구현)
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+            geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+            
+            const material = new THREE.LineBasicMaterial({ vertexColors: true });
+            tree3DObject = new THREE.LineSegments(geometry, material);
+            
+            // 화면 중앙 정렬
+            tree3DObject.position.y = -20;
+            scene.add(tree3DObject);
+        }
+
+        // --- 5. 실시간 수학 연산 데이터 표시 ---
         function updateDataPanel(r, n) {
-            // 2-1. 총 나뭇가지 개수 (첫 항이 1, 공비가 2인 등비수열의 n항까지의 합: 2^n - 1)
+            // 등비수열의 합 (총 가지 개수)
             const totalBranches = Math.pow(2, n) - 1;
             document.getElementById('calc-branches').textContent = totalBranches.toLocaleString() + " 개";
 
-            // 2-2. 최종 단계 가지 1개의 길이 (등비수열 일반항: L_1 * r^(n-1))
+            // 마지막 가지 길이 (일반항)
             const smallestLength = L1 * Math.pow(r, n - 1);
             document.getElementById('calc-smallest').textContent = smallestLength.toFixed(2) + " px";
 
-            // 2-3. 모든 가지 길이의 총합 (공비가 2r인 등비수열의 합)
-            let totalLength = 0;
-            if (2 * r === 1) {
-                totalLength = L1 * n;
-            } else {
-                totalLength = L1 * (1 - Math.pow(2 * r, n)) / (1 - (2 * r));
-            }
+            // 모든 가지 길이의 총합
+            let totalLength = (2 * r === 1) ? L1 * n : L1 * (1 - Math.pow(2 * r, n)) / (1 - (2 * r));
             document.getElementById('calc-total-length').textContent = totalLength.toLocaleString(undefined, {maximumFractionDigits: 0}) + " px";
 
-            // 2-4. 알고리즘 상태 판단 (로그 부등식 제어 기준)
+            // 알고리즘 상태
             const statusEl = document.getElementById('calc-status');
             if (smallestLength < 1) {
                 statusEl.textContent = "최적화 완료 (1px 미만 제어됨)";
@@ -221,33 +284,58 @@
             }
         }
 
-        // 3. 화면 업데이트 메인 함수
+        // --- 6. 화면 전체 업데이트 ---
         function update() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
             const r = parseFloat(ratioSlider.value);
             const n = parseInt(depthSlider.value);
             const angle = parseInt(angleSlider.value);
 
-            // UI 텍스트 갱신
-            angleVal.textContent = angle;
-            ratioVal.textContent = r.toFixed(2);
-            depthVal.textContent = n;
+            document.getElementById('angleVal').textContent = angle;
+            document.getElementById('ratioVal').textContent = r.toFixed(2);
+            document.getElementById('depthVal').textContent = n;
 
-            // 데이터 패널 갱신
             updateDataPanel(r, n);
 
-            // 프랙탈 렌더링 시작 (화면 하단 중앙에서 출발)
-            drawTree(canvas.width / 2, canvas.height, L1, 0, n, 10);
+            if (currentMode === '2D') {
+                ctx2D.clearRect(0, 0, canvas2D.width, canvas2D.height);
+                drawTree2D(canvas2D.width / 2, canvas2D.height, L1, 0, n, 10);
+            } else {
+                generateTree3D(r, angle, n);
+            }
         }
 
-        // 이벤트 리스너 등록
+        // --- 7. 모드(2D/3D) 전환 로직 ---
+        function setMode(mode) {
+            currentMode = mode;
+            document.getElementById('btn2D').classList.toggle('active', mode === '2D');
+            document.getElementById('btn3D').classList.toggle('active', mode === '3D');
+            
+            if (mode === '2D') {
+                canvas2D.style.display = 'block';
+                renderer.domElement.style.display = 'none';
+            } else {
+                canvas2D.style.display = 'none';
+                renderer.domElement.style.display = 'block';
+            }
+            update(); // 모드 전환 시 다시 그리기
+        }
+
+        // 3D 애니메이션 루프 (마우스로 드래그하여 회전시키기 위함)
+        function animate3D() {
+            requestAnimationFrame(animate3D);
+            if (currentMode === '3D') {
+                controls.update();
+                renderer.render(scene, camera);
+            }
+        }
+
+        // 이벤트 리스너 등록 및 초기 실행
         angleSlider.addEventListener('input', update);
         ratioSlider.addEventListener('input', update);
         depthSlider.addEventListener('input', update);
-
-        // 최초 실행
+        
         update();
+        animate3D();
     </script>
 </body>
 </html>
